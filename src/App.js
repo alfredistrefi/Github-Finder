@@ -1,53 +1,82 @@
-import React, { useState } from 'react'; // Importing React and useState hook from 'react' module
-import './App.css'; // Importing CSS styles from 'App.css' file
-import 'bootstrap/dist/css/bootstrap.css'; // Importing Bootstrap CSS styles
-import '@fortawesome/fontawesome-free/css/all.css'; // Importing Font Awesome CSS styles
+import React, { useState } from 'react';
+import './App.css';
+import 'bootstrap/dist/css/bootstrap.css';
+import '@fortawesome/fontawesome-free/css/all.css';
 
 const App = () => {
-  const [searchQuery, setSearchQuery] = useState(''); // State variable for storing the search query
-  const [loading, setLoading] = useState(false); // State variable for indicating loading state
-  const [users, setUsers] = useState([]); // State variable for storing the list of users
+  // State variables
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState([]);
 
-  const handleChange = (event) => { // Event handler for input value change
-    setSearchQuery(event.target.value); // Updating searchQuery state with new value
+  // Event handler for input field change
+  const handleChange = (event) => {
+    setSearchQuery(event.target.value);
   };
 
-  const handleSubmit = async (event) => { // Event handler for form submission
-    event.preventDefault(); // Preventing default form submission behavior
-    setLoading(true); // Setting loading state to true
+  // Event handler for form submission
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
 
     try {
-      const response = await fetch(`https://api.github.com/search/users?q=${searchQuery}`); // Making API request to GitHub search API
-      const data = await response.json(); // Parsing the response data
+      // API call to search for users
+      const response = await fetch(`https://api.github.com/search/users?q=${searchQuery}`, {
+        headers: {
+          Authorization: 'Bearer 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',
+        },
+      });
+      const data = await response.json();
 
-      if (data.items) { // If users were found
-        const fetchedUsers = data.items; // Extracting the list of users from the response
-        const updatedUsers = await Promise.all( // Fetching additional details for each user
+      if (response.ok) {
+        const fetchedUsers = data.items;
+
+        // Fetch additional details for each user
+        const updatedUsers = await Promise.all(
           fetchedUsers.map(async (user) => {
-            const userDetailsResponse = await fetch(user.url); // Making API request to user details endpoint
-            const userDetails = await userDetailsResponse.json(); // Parsing the user details response
-            return { // Creating a new user object with additional details
+            // API call to fetch user details
+            const userDetailsResponse = await fetch(user.url, {
+              headers: {
+                Authorization: 'Bearer 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',
+              },
+            });
+            const userDetails = await userDetailsResponse.json();
+
+            // API call to fetch user's repositories
+            const repoResponse = await fetch(userDetails.repos_url, {
+              headers: {
+                Authorization: 'Bearer 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',
+              },
+            });
+            const repos = await repoResponse.json();
+
+            // Return updated user object with additional data
+            return {
               ...user,
               followers: userDetails.followers,
               following: userDetails.following,
+              repoCount: repos.length,
             };
           })
         );
-        setUsers(updatedUsers); // Updating users state with the updated array of users
+
+        // Update the state with the fetched users
+        setUsers(updatedUsers);
       } else {
-        setUsers([]); // Setting users state to an empty array if no users were found
+        // Reset the user list if the response is not successful
+        setUsers([]);
       }
     } catch (error) {
-      // Handle any errors
       console.error('Error:', error);
     } finally {
-      setLoading(false); // Setting loading state to false
+      setLoading(false);
     }
   };
 
-  const handleKeyPress = (event) => { // Event handler for key press
-    if (event.key === 'Enter') { // If Enter key is pressed
-      handleSubmit(event); // Call the handleSubmit function
+  // Event handler for handling Enter key press
+  const handleKeyPress = (event) => {
+    if (event.key === 'Enter') {
+      handleSubmit(event);
     }
   };
 
@@ -66,15 +95,13 @@ const App = () => {
               onChange={handleChange}
               onKeyPress={handleKeyPress}
             />
-            <div className="input-group-append">
-              {/* Additional elements can be added here */}
-            </div>
+            <div className="input-group-append"></div>
           </div>
         </div>
 
-        {loading && <p>Loading...</p>} {/* Render "Loading..." if loading state is true */}
+        {loading && <p>Loading...</p>}
 
-        {users.length > 0 && ( // Render user list if there are users in the array
+        {users.length > 0 && (
           <div className="users">
             <ul className="column-container">
               {users.map((user) => (
@@ -82,6 +109,7 @@ const App = () => {
                   <figure>
                     <img className="avatar" src={user.avatar_url} alt={`${user.login}'s avatar`} />
                     <figcaption>{user.login}</figcaption>
+                    <p className='fllw'>Repositories: {user.repoCount}</p>
                     <p className='fllw'>Followers: {user.followers}</p>
                     <p className='fllw'>Following: {user.following}</p>
                   </figure>
@@ -91,10 +119,11 @@ const App = () => {
           </div>
         )}
 
-        {users.length === 0 && !loading && <p>No users found.</p>} {/* Render "No users found." if there are no users */}
+        {users.length === 0 && !loading && <p>No users found.</p>}
       </div>
     </div>
   );
 };
 
-export default App; // Exporting the App component
+export default App;
+
